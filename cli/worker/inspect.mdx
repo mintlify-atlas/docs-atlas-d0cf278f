@@ -1,0 +1,88 @@
+---
+title: "`firebreak worker inspect`"
+description: "Show the full JSON metadata record for a single worker, including status, paths, PID, and exit information."
+---
+
+## Synopsis
+
+```
+firebreak worker inspect WORKER_ID
+```
+
+## Description
+
+`firebreak worker inspect` prints the complete metadata JSON for a single worker. It refreshes the worker's status before outputting, so the `status`, `exit_code`, and `finished_at` fields reflect the actual current state of the process.
+
+Use `inspect` when you need the full record — log file paths, flake ref, PID details, or trace path — rather than the summary columns shown by `ps`.
+
+## Arguments
+
+<ParamField path="WORKER_ID" type="string" required>
+  The worker ID to inspect, in the form `<kind>-<hash>`. Find worker IDs with `firebreak worker ps`.
+</ParamField>
+
+## Output fields
+
+```json
+{
+  "worker_id": "codex-1a2b3c4d5e6f",
+  "authority": "host",
+  "backend": "firebreak",
+  "kind": "codex",
+  "status": "running",
+  "workspace": "/home/user/project",
+  "package_name": "firebreak-codex",
+  "launch_mode": "run",
+  "pid": 12345,
+  "pid_boot_id": "550e8400-e29b-41d4-a716-446655440000",
+  "pid_start_time": "12345678",
+  "flake_ref": "github:skadaai/firebreak",
+  "stdout_path": "/home/user/.local/state/firebreak/worker-broker/workers/codex-1a2b3c4d5e6f/stdout.log",
+  "stderr_path": "/home/user/.local/state/firebreak/worker-broker/workers/codex-1a2b3c4d5e6f/stderr.log",
+  "trace_path": "/home/user/.local/state/firebreak/worker-broker/workers/codex-1a2b3c4d5e6f/trace.log",
+  "created_at": "2026-04-05T10:00:00Z",
+  "finished_at": null,
+  "exit_code": null,
+  "stop_requested": false
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `worker_id` | string | Unique worker identifier in `<kind>-<hash>` format |
+| `authority` | string | Host authority (always `host` for local workers) |
+| `backend` | string | Execution backend: `process` or `firebreak` |
+| `kind` | string | Agent kind label used when the worker was created |
+| `status` | string | Current lifecycle status |
+| `workspace` | string | Absolute path to the working directory |
+| `package_name` | string \| null | Firebreak package name; null for `process` backend |
+| `launch_mode` | string \| null | Launch mode (`run` or `shell`); null for `process` backend |
+| `pid` | integer | Process ID of the worker's launch script |
+| `pid_boot_id` | string \| null | Host boot ID at launch time, used for PID liveness checks |
+| `pid_start_time` | string \| null | Kernel start time of the PID, used for PID liveness checks |
+| `flake_ref` | string \| null | Nix flake ref resolved at launch time; null for `process` backend |
+| `stdout_path` | string | Absolute path to the worker's captured stdout log |
+| `stderr_path` | string | Absolute path to the worker's captured stderr log |
+| `trace_path` | string | Absolute path to the internal event trace log |
+| `created_at` | string | ISO 8601 UTC timestamp when the worker was created |
+| `finished_at` | string \| null | ISO 8601 UTC timestamp when the process exited; null if still running |
+| `exit_code` | integer \| null | Process exit code; null if still running |
+| `stop_requested` | boolean | Whether a stop was explicitly requested for this worker |
+
+## Example
+
+```bash
+firebreak worker inspect codex-1a2b3c4d5e6f
+```
+
+<Tip>
+  Use `stdout_path` and `stderr_path` from `inspect` output to open log files directly, or use `firebreak worker logs` to stream them.
+</Tip>
+
+<Note>
+  `inspect` always outputs raw JSON. Pipe to `jq` for formatting or field extraction:
+
+  ```bash
+  firebreak worker inspect codex-1a2b3c4d5e6f | jq .status
+  ```
+</Note>

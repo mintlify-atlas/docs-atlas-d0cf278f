@@ -1,97 +1,65 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Skada Firebreak"
+description: "A VM-first control plane for running AI coding agents in isolated KVM-backed MicroVMs — reliable isolation for high-trust automation."
 ---
 
-## Setting up
+Skada Firebreak gives you a small, clear interface for running AI coding agents like Codex and Claude Code inside isolated MicroVMs. Each agent session gets its own KVM-backed sandbox with your project directory mounted in, so agents can write and run code without touching the host system.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get Firebreak running and launch your first agent VM in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Installation" icon="download" href="/installation">
+    Install Firebreak via npx, Nix, or from source.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="CLI Reference" icon="terminal" href="/cli/overview">
+    Every command, flag, and option in Firebreak's public interface.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Worker Orchestration" icon="network-wired" href="/cli/worker/overview">
+    Manage multiple agent workers with concurrency limits and lifecycle control.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## How it works
 
-Everything you need to create world-class documentation.
+Firebreak wraps AI agent CLIs in lightweight MicroVMs using `microvm.nix` and KVM. Your current working directory is mounted into the VM at the same path, so agents see your project exactly as it exists on the host. When the agent exits, the VM tears down.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<Steps>
+  <Step title="Install Firebreak">
+    Run `npx firebreak init` in your project directory. Firebreak checks that Nix and KVM are available, then writes a `.firebreak.env` config file tailored to your answers.
+  </Step>
+  <Step title="Launch an agent VM">
+    Run `npx firebreak run codex` or `npx firebreak run claude-code` to start an agent in an isolated VM. Your project directory is mounted automatically.
+  </Step>
+  <Step title="Work with confidence">
+    The agent runs inside KVM isolation. It can read and modify your project files, but it cannot affect the host system outside the mounted workspace.
+  </Step>
+</Steps>
 
-## Need inspiration?
+## Available agent VMs
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card title="firebreak-codex" icon="robot" href="/guides/running-agents">
+    Run OpenAI Codex in an isolated Firebreak VM. Supports interactive, shell, and worker modes.
+  </Card>
+  <Card title="firebreak-claude-code" icon="brain" href="/guides/running-agents">
+    Run Anthropic Claude Code in an isolated Firebreak VM with the same full feature set.
+  </Card>
+</CardGroup>
+
+## Key capabilities
+
+<CardGroup cols={2}>
+  <Card title="Worker orchestration" icon="sitemap" href="/guides/worker-mode">
+    Run multiple agent workers in parallel, control routing between VM and local modes, and enforce concurrency limits per agent kind.
+  </Card>
+  <Card title="Project configuration" icon="sliders" href="/configuration/project-config">
+    Store project defaults in `.firebreak.env`. Real environment variables always take precedence.
+  </Card>
+  <Card title="Diagnostics" icon="stethoscope" href="/guides/diagnostics">
+    `firebreak doctor` reports your full resolved config, platform readiness, KVM state, and agent config resolution in one command.
+  </Card>
+  <Card title="CI integration" icon="circle-check" href="/guides/ci-setup">
+    Run agent VMs in GitHub Actions with a self-hosted KVM runner. Full setup guide included.
+  </Card>
+</CardGroup>

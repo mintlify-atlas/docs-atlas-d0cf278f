@@ -1,0 +1,79 @@
+---
+title: "`firebreak worker stop`"
+description: "Send a stop signal to one or more active workers. Workers transition to stopping then stopped."
+---
+
+## Synopsis
+
+```
+firebreak worker stop [--all] [--json] [WORKER_ID...]
+```
+
+## Description
+
+`firebreak worker stop` signals one or more workers to stop. The command sends a termination signal to the worker's launch script and its child process, then sets the worker's `stop_requested` flag. The worker transitions to `stopping` while the process winds down, and then to `stopped` once it exits.
+
+You must provide either one or more `WORKER_ID` arguments or the `--all` flag. These options are mutually exclusive.
+
+`stop` is non-blocking — it sends the signal and returns immediately. The worker may still be in `stopping` when the command exits. Use `firebreak worker ps` to monitor the transition to `stopped`.
+
+## Arguments
+
+<ParamField path="WORKER_ID..." type="string">
+  One or more worker IDs to stop. Cannot be combined with `--all`.
+</ParamField>
+
+## Flags
+
+<ParamField path="--all">
+  Stop all currently active workers (`active`, `running`, or `stopping` status). Cannot be combined with explicit `WORKER_ID` arguments.
+</ParamField>
+
+<ParamField path="--json">
+  Output metadata for the stopped workers as JSON. For a single worker ID (without `--all`), outputs the single metadata object. For multiple workers or `--all`, outputs a JSON array. If no workers were stopped, outputs `[]`.
+</ParamField>
+
+## Lifecycle after stop
+
+When a worker is stopped:
+
+1. `stop_requested` is set to `true` in the worker record.
+2. The child process receives `SIGTERM`; the launch script also receives `SIGTERM`.
+3. The worker status transitions to `stopping`.
+4. Once the process exits, the status transitions to `stopped` (not `exited`, because the stop was requested).
+
+A worker in `stopped` state is no longer active and will not appear in `firebreak worker ps` without `--all`.
+
+## Examples
+
+Stop a single worker:
+
+```bash
+firebreak worker stop codex-1a2b3c4d5e6f
+```
+
+Stop all active workers:
+
+```bash
+firebreak worker stop --all
+```
+
+Stop a worker and capture the resulting metadata:
+
+```bash
+firebreak worker stop --json codex-1a2b3c4d5e6f
+```
+
+Stop multiple workers by ID:
+
+```bash
+firebreak worker stop codex-1a2b3c4d5e6f claude-code-9f8e7d6c
+```
+
+<Warning>
+  `stop` sends SIGTERM, not SIGKILL. If the worker process does not exit after receiving the signal, use `firebreak worker rm --force` to forcibly kill and remove it.
+</Warning>
+
+<Note>
+  Stopping a worker does not remove its record from state. Use `firebreak worker rm` to remove the record after it has stopped, or `firebreak worker prune` to clean up all stopped and exited workers at once.
+</Note>

@@ -1,0 +1,76 @@
+---
+title: "`firebreak worker logs`"
+description: "Print or follow a worker's captured stdout or stderr output."
+---
+
+## Synopsis
+
+```
+firebreak worker logs [--stdout|--stderr] [-f|--follow] WORKER_ID
+```
+
+## Description
+
+`firebreak worker logs` reads the captured log file for a worker and prints it to your terminal. By default it shows stdout. Use `--stderr` to read the stderr log instead, and `--follow` to stream new output in real time as the worker runs.
+
+Log files are captured from the moment the worker starts and persist after the worker exits, so you can retrieve logs from stopped or exited workers.
+
+## Arguments
+
+<ParamField path="WORKER_ID" type="string" required>
+  The worker ID to read logs from. Find worker IDs with `firebreak worker ps`.
+</ParamField>
+
+## Flags
+
+<ParamField path="--stdout" default="true">
+  Read the worker's stdout log. This is the default behavior.
+</ParamField>
+
+<ParamField path="--stderr">
+  Read the worker's stderr log instead of stdout.
+</ParamField>
+
+<ParamField path="-f, --follow">
+  Follow the log file in real time, printing new lines as they are appended (equivalent to `tail -f`). The command runs until interrupted with Ctrl+C.
+</ParamField>
+
+## Examples
+
+Print stdout for a worker:
+
+```bash
+firebreak worker logs codex-1a2b3c4d5e6f
+```
+
+Print stderr for a worker:
+
+```bash
+firebreak worker logs --stderr codex-1a2b3c4d5e6f
+```
+
+Follow stdout in real time:
+
+```bash
+firebreak worker logs -f codex-1a2b3c4d5e6f
+```
+
+Follow stderr in real time:
+
+```bash
+firebreak worker logs --stderr --follow codex-1a2b3c4d5e6f
+```
+
+Capture logs into a file:
+
+```bash
+firebreak worker logs codex-1a2b3c4d5e6f > session.log
+```
+
+<Note>
+  `--stdout` and `--stderr` are mutually exclusive. If both are specified, the last one wins.
+</Note>
+
+<Tip>
+  To get the exact path of a worker's log files without reading them, use `firebreak worker inspect` and read the `stdout_path` or `stderr_path` fields.
+</Tip>

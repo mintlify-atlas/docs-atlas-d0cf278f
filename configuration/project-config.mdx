@@ -1,0 +1,109 @@
+---
+title: "Project Configuration"
+description: "Configure per-project defaults for Firebreak using a .firebreak.env file at your project root."
+keywords: ["firebreak", "project config", ".firebreak.env", "configuration", "init"]
+---
+
+The `.firebreak.env` file lets you set project-specific defaults for Firebreak without modifying your shell environment. Firebreak reads this file automatically whenever you run a command from within the project directory.
+
+## The `.firebreak.env` file
+
+`.firebreak.env` lives at the root of your project — the same directory as your `flake.nix` or `.git` folder. Firebreak resolves the project root by walking up from the current working directory, using the Git repository root when available, or falling back to `$PWD`.
+
+The file uses plain `KEY=VALUE` format, with the same variable names as the public Firebreak environment variables. Lines starting with `#` are treated as comments.
+
+```dotenv
+AGENT_CONFIG=workspace
+# FIREBREAK_LAUNCH_MODE=run
+# CODEX_CONFIG=workspace
+# CLAUDE_CONFIG=workspace
+```
+
+<Note>
+Real environment variables always take precedence over values in `.firebreak.env`. If `AGENT_CONFIG` is already set in your shell, the file value is ignored for that key.
+</Note>
+
+Only the following keys are read from the file. Any other keys are silently ignored (and reported by `firebreak doctor --verbose`):
+
+- `AGENT_CONFIG`
+- `AGENT_CONFIG_HOST_PATH`
+- `FIREBREAK_LAUNCH_MODE`
+- `FIREBREAK_WORKER_MODE`
+- `FIREBREAK_WORKER_MODES`
+- `FIREBREAK_WORKER_PROXY_MODE`
+- `CODEX_CONFIG`
+- `CODEX_CONFIG_HOST_PATH`
+- `CLAUDE_CONFIG`
+- `CLAUDE_CONFIG_HOST_PATH`
+
+## Generating the file
+
+### Interactive (recommended)
+
+Run `firebreak init` from your project root to generate a tailored `.firebreak.env` through a guided prompt:
+
+```bash
+firebreak init
+```
+
+The wizard asks you to choose an agent config mode, a default launch mode, and whether you want per-agent overrides. It then shows you the proposed file content and asks for confirmation before writing it.
+
+### Non-interactive
+
+To write the default template without any prompts — useful in CI or automated setup scripts — pass `--non-interactive`:
+
+```bash
+firebreak init --non-interactive
+```
+
+This writes a commented template with sensible defaults.
+
+### Preview without writing
+
+To print the generated config to stdout instead of writing it to disk, use `--stdout`:
+
+```bash
+firebreak init --stdout
+firebreak init --non-interactive --stdout
+```
+
+## Overwriting an existing file
+
+If `.firebreak.env` already exists, `firebreak init` will refuse to overwrite it:
+
+```
+firebreak config file already exists: /your/project/.firebreak.env
+use 'firebreak init --force' to overwrite it or 'firebreak doctor' to inspect the resolved state
+```
+
+Pass `--force` to regenerate it:
+
+```bash
+firebreak init --force
+```
+
+## Inspecting resolved configuration
+
+`firebreak doctor` loads `.firebreak.env` and shows you the fully resolved state, including which config file was found, the agent config modes that will be used, and any keys that were ignored:
+
+```bash
+firebreak doctor
+```
+
+```
+Firebreak Doctor
+
+Summary
+project_root             /home/user/my-project
+project_config           project-default: /home/user/my-project/.firebreak.env
+host_platform            x86_64-linux
+local_runtime            qemu
+launch_mode              run
+cwd_whitespace           no
+primary_checkout         yes
+kvm                      ok
+codex_config             workspace (/home/user/my-project/.codex)
+claude_config            workspace (/home/user/my-project/.claude)
+```
+
+Pass `--json` for machine-readable output, or `--verbose` to see additional details including any ignored keys.

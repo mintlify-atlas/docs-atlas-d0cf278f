@@ -1,0 +1,173 @@
+---
+title: "Diagnostics"
+description: "Use `firebreak doctor` to inspect resolved config, platform readiness, KVM state, and agent config in one command."
+---
+
+`firebreak doctor` reports everything Firebreak has resolved about your environment: project config, host platform, launch mode, agent config paths, workspace compatibility, and KVM availability. It is the first command to run when something is not working as expected.
+
+`firebreak doctor` works even when KVM is unavailable, which makes it useful for setup and troubleshooting on machines that do not yet have KVM access.
+
+## Usage
+
+```bash
+firebreak doctor
+```
+
+```bash
+firebreak doctor --verbose
+```
+
+```bash
+firebreak doctor --json
+```
+
+## What it reports
+
+`firebreak doctor` prints a summary with the following fields:
+
+| Field | Description |
+|---|---|
+| `project_root` | The resolved project root directory |
+| `project_config` | Source and path of the resolved `.firebreak.env` config file |
+| `host_platform` | The host OS and architecture (e.g., `x86_64-linux`, `aarch64-darwin`) |
+| `local_runtime` | The selected VM runtime for this platform (`qemu` on Linux, `vfkit` on Apple Silicon) |
+| `launch_mode` | The resolved public launch mode (`run` or `shell`) |
+| `cwd_whitespace` | Whether the current working directory contains whitespace (`yes` or `no`) |
+| `primary_checkout` | Whether the current directory is the primary git checkout |
+| `kvm` | KVM availability state (see values below) |
+| `codex_config` | Resolved Codex config mode and path |
+| `claude_config` | Resolved Claude Code config mode and path |
+
+### KVM states
+
+| Value | Meaning |
+|---|---|
+| `ok` | `/dev/kvm` exists and is readable and writable |
+| `missing` | `/dev/kvm` does not exist |
+| `not-readable` | `/dev/kvm` exists but is not readable by the current user |
+| `not-writable` | `/dev/kvm` exists and is readable but not writable |
+| `not-applicable` | KVM is not checked on this platform (Apple Silicon uses vfkit) |
+
+## Verbose output
+
+Pass `--verbose` to see additional details including the resolved project root source, the raw `cwd`, the git common dir, and any ignored keys from `.firebreak.env`:
+
+```bash
+firebreak doctor --verbose
+```
+
+## JSON output
+
+Pass `--json` for machine-readable output. This is useful for scripts, CI diagnostics, and tooling that consumes Firebreak state:
+
+```bash
+firebreak doctor --json
+```
+
+Example output:
+
+```json
+{
+  "project_root": "/home/you/projects/myapp",
+  "project_root_source": "git",
+  "project_config_file": "/home/you/projects/myapp/.firebreak.env",
+  "project_config_source": "project-default",
+  "host_platform": "x86_64-linux",
+  "local_runtime": "qemu",
+  "cwd": "/home/you/projects/myapp",
+  "cwd_whitespace": false,
+  "launch_mode": "run",
+  "git_common_dir": ".git",
+  "primary_checkout": "yes",
+  "kvm": "ok",
+  "ignored_config_keys": [],
+  "agents": {
+    "codex": {
+      "mode": "vm",
+      "path": "/var/lib/dev/.codex"
+    },
+    "claude-code": {
+      "mode": "vm",
+      "path": "/var/lib/dev/.claude"
+    }
+  }
+}
+```
+
+## Common issues
+
+<AccordionGroup>
+  <Accordion title="KVM not available (missing or not-readable/not-writable)">
+    If `kvm` is `missing`, KVM is not enabled on this machine. On a cloud VM or bare-metal host, check that hardware virtualization is enabled in the BIOS/UEFI and that the `kvm` kernel module is loaded:
+
+    ```bash
+    lsmod | grep kvm
+    ```
+
+    If `kvm` is `not-readable` or `not-writable`, the current user does not have permission. Add the user to the `kvm` group:
+
+    ```bash
+    sudo usermod -aG kvm $USER
+    ```
+
+    Log out and back in for the group change to take effect. Then re-run `firebreak doctor` to confirm `kvm: ok`.
+  </Accordion>
+
+  <Accordion title="Whitespace in working directory path">
+    If `cwd_whitespace` is `yes`, the VM mount will fail when you launch a Firebreak workload. Move your project to a path that does not contain spaces, tabs, or other whitespace characters.
+
+    ```bash
+    # Bad: path contains a space
+    /home/you/my projects/myapp
+
+    # Good: no whitespace in path
+    /home/you/projects/myapp
+    ```
+
+    After moving, run `firebreak doctor` again from the new path to confirm `cwd_whitespace: no`.
+  </Accordion>
+
+  <Accordion title="Nix not installed">
+    If Firebreak cannot find `nix`, the launcher will exit before reaching the VM. Install Nix with flakes support enabled.
+
+    Using the Determinate Systems installer:
+
+    ```bash
+    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+    ```
+
+    Or enable flakes manually after the standard Nix install:
+
+    ```bash
+    mkdir -p ~/.config/nix
+    echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+    ```
+  </Accordion>
+
+  <Accordion title="Unsupported platform">
+    If `local_runtime` is `unsupported-intel-mac`, you are on an Intel Mac. Firebreak local workloads require Apple Silicon macOS or a supported Linux host.
+
+    If `local_runtime` is `unsupported-host`, the OS or architecture is not recognized. Firebreak supports `x86_64-linux`, `aarch64-linux`, and `aarch64-darwin`.
+  </Accordion>
+
+  <Accordion title="Ignored keys in .firebreak.env">
+    If `ignored_config_keys` is non-empty in JSON output (or shown in `--verbose`), `.firebreak.env` contains keys that Firebreak does not recognize. These keys are silently ignored.
+
+    Remove unrecognized keys from `.firebreak.env`, or set them as real shell environment variables if they are needed by another tool.
+  </Accordion>
+
+  <Accordion title="Not in primary checkout">
+    If `primary_checkout` is `no`, you are running inside a git worktree rather than the main checkout. Commands such as `firebreak internal task create` require the primary checkout. Switch to the main checkout directory before running those commands.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Running agents" icon="rocket" href="/guides/running-agents">
+    Launch Codex and Claude Code once your environment checks out.
+  </Card>
+  <Card title="CI setup" icon="circle-check" href="/guides/ci-setup">
+    Run `firebreak doctor` on a CI runner to diagnose KVM and platform issues.
+  </Card>
+</CardGroup>

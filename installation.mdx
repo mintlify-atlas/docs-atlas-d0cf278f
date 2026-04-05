@@ -1,0 +1,223 @@
+---
+title: "Installation"
+description: "Install Skada Firebreak via npx, Nix, or from a local checkout. Covers platform requirements, KVM setup, and environment variables."
+---
+
+Firebreak ships a thin Node.js launcher so you can run the Nix-backed CLI with `npx firebreak`. You can also invoke Nix directly or work from a local checkout of the repository.
+
+## Platform requirements
+
+| Platform | Architecture | Runtime | Status |
+|---|---|---|---|
+| Linux | x86\_64 | QEMU + KVM | Supported |
+| Linux | aarch64 | QEMU + KVM | Supported |
+| macOS (Apple Silicon) | aarch64 | vfkit | Experimental |
+| macOS (Intel) | x86\_64 | — | Not supported |
+
+<Warning>
+  Intel Macs are not supported. Firebreak local support on macOS requires Apple Silicon (arm64). Use an Apple Silicon Mac or a supported Linux host.
+</Warning>
+
+<Note>
+  Apple Silicon macOS support is **experimental**. The runtime uses vfkit instead of KVM. Please report issues at [github.com/skadaai/firebreak/issues](https://github.com/skadaai/firebreak/issues).
+</Note>
+
+## Install methods
+
+<Steps>
+  <Step title="Choose your install method">
+    <Tabs>
+      <Tab title="npx (recommended)">
+        The `npx` launcher requires Node.js 18 or later. No global install is needed — Node.js resolves the `firebreak` package on first use and Nix handles the rest.
+
+        ```bash
+        npx firebreak --help
+        ```
+
+        To run a specific version:
+
+        ```bash
+        npx firebreak@0.0.1 --help
+        ```
+
+        The launcher checks platform compatibility, verifies Nix is installed, and confirms KVM access on Linux before forwarding your command to the Bash Firebreak CLI via `nix run`.
+      </Tab>
+      <Tab title="Nix direct">
+        If you have Nix installed with flakes enabled, you can invoke Firebreak without Node.js at all:
+
+        ```bash
+        nix run github:skadaai/firebreak#firebreak -- --help
+        ```
+
+        To run a specific flake revision:
+
+        ```bash
+        nix run github:skadaai/firebreak/main#firebreak -- --help
+        ```
+
+        This is the same command the `npx` launcher runs internally. The `--` separator passes remaining arguments through to the Firebreak Bash CLI.
+      </Tab>
+      <Tab title="Local checkout">
+        If you have cloned the Firebreak repository, the `npx` launcher automatically detects the checkout and uses it instead of fetching from GitHub. No extra configuration is needed.
+
+        ```bash
+        git clone https://github.com/skadaai/firebreak.git
+        cd firebreak
+        npx firebreak --help
+        ```
+
+        Detection works by walking up the directory tree from your current working directory and looking for `flake.nix` and `modules/base/host/firebreak.sh`. If both are found, the launcher treats that directory as the local root.
+
+        You can also force a specific path with an environment variable:
+
+        ```bash
+        FIREBREAK_LAUNCHER_PACKAGE_ROOT=/path/to/firebreak npx firebreak --help
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Install Nix">
+    All Firebreak install methods require Nix with flakes support. If Nix is not installed, the launcher exits with:
+
+    ```
+    firebreak launcher: Nix is not installed. Install Nix first, then run `npx firebreak` again.
+    ```
+
+    Install Nix from [nixos.org/download](https://nixos.org/download). The multi-user Determinate Systems installer is a reliable choice on both Linux and macOS.
+
+    After installing, verify flakes are enabled by running:
+
+    ```bash
+    nix --version
+    nix flake --help
+    ```
+
+    If `nix flake` is not recognized, add the following to your Nix configuration:
+
+    ```
+    experimental-features = nix-command flakes
+    ```
+
+    <Note>
+      The `npx` launcher automatically passes `--extra-experimental-features 'nix-command flakes'` and `--accept-flake-config` to every `nix run` invocation unless you set `FIREBREAK_LAUNCHER_DISABLE_NIX_HELPERS=1`.
+    </Note>
+  </Step>
+
+  <Step title="Set up KVM (Linux only)">
+    On Linux hosts, Firebreak requires KVM access to run MicroVM workloads. Check that `/dev/kvm` exists and is accessible by your user.
+
+    **Verify KVM is available:**
+
+    ```bash
+    ls -la /dev/kvm
+    ```
+
+    You should see output like:
+
+    ```
+    crw-rw---- 1 root kvm 10, 232 Apr  5 09:00 /dev/kvm
+    ```
+
+    **Grant your user access:**
+
+    ```bash
+    sudo usermod -aG kvm $USER
+    ```
+
+    Log out and back in for the group change to take effect, or activate it in the current shell:
+
+    ```bash
+    newgrp kvm
+    ```
+
+    **Verify access:**
+
+    ```bash
+    npx firebreak doctor
+    ```
+
+    The `kvm` field in the doctor output should show `ok`. If it shows `missing`, `not-readable`, or `not-writable`, resolve the permission issue before running agent VMs.
+
+    <Info>
+      KVM is not available on Apple Silicon macOS. Firebreak uses vfkit there instead, so no KVM setup is needed on that platform.
+    </Info>
+  </Step>
+</Steps>
+
+## Environment variables
+
+The `npx` launcher reads the following environment variables before forwarding your command to the Bash CLI.
+
+| Variable | Default | Description |
+|---|---|---|
+| `FIREBREAK_LAUNCHER_KVM_PATH` | `/dev/kvm` | Path to the KVM device node. Override if your system uses a non-standard path. |
+| `FIREBREAK_LAUNCHER_PACKAGE_ROOT` | _(auto-detect)_ | Force the launcher to use a specific local Firebreak checkout directory. Must point to a valid Firebreak root containing `flake.nix`. |
+| `FIREBREAK_LAUNCHER_DISABLE_NIX_HELPERS` | _(unset)_ | Set to `1` to disable the automatic `--accept-flake-config` and `--extra-experimental-features` flags passed to `nix run`. Useful if your Nix config already enables flakes globally. |
+
+<Info>
+  These variables affect only the Node.js launcher layer. For Firebreak's own runtime environment variables (such as `FIREBREAK_LAUNCH_MODE`, `AGENT_CONFIG`, and `FIREBREAK_WORKER_MODE`), see [Environment variables](/configuration/environment-variables).
+</Info>
+
+## Local checkout detection
+
+When you run `npx firebreak` from inside a cloned Firebreak repository, the launcher walks up the directory tree looking for a Firebreak root. It identifies a root by checking that both of these paths exist:
+
+- `flake.nix`
+- `modules/base/host/firebreak.sh`
+
+If both are found, the launcher uses `path:<local-root>` as the Nix flake reference instead of `github:skadaai/firebreak`. This means changes you make to the local checkout take effect immediately without a push or publish step.
+
+The `FIREBREAK_LAUNCHER_PACKAGE_ROOT` environment variable bypasses the auto-detection walk and pins the root directly.
+
+## Verifying the install
+
+Run `firebreak doctor` after installation to confirm everything is in order:
+
+```bash
+npx firebreak doctor
+```
+
+A healthy output on Linux looks like:
+
+```
+Firebreak Doctor
+
+Summary
+project_root             /home/user/my-project
+project_config           project-default: /home/user/my-project/.firebreak.env
+host_platform            x86_64-linux
+local_runtime            qemu
+launch_mode              run
+cwd_whitespace           no
+primary_checkout         unknown
+kvm                      ok
+codex_config             vm (/var/lib/dev/.codex)
+claude_config            vm (/var/lib/dev/.claude)
+
+Suggested next steps
+- No obvious launch blockers detected.
+```
+
+For machine-readable output, use:
+
+```bash
+npx firebreak doctor --json
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Launch your first agent VM with a step-by-step walkthrough.
+  </Card>
+  <Card title="Project configuration" icon="sliders" href="/configuration/project-config">
+    Configure `.firebreak.env` for your project's agent and launch defaults.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/cli/overview">
+    Full reference for every Firebreak command and flag.
+  </Card>
+  <Card title="Diagnostics" icon="stethoscope" href="/guides/diagnostics">
+    Understand every field in `firebreak doctor` output.
+  </Card>
+</CardGroup>

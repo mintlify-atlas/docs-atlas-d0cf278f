@@ -1,0 +1,100 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Skada Firebreak",
+  "projectDescription": "A VM-first control plane for running AI coding agents (Codex, Claude Code) in isolated KVM-backed MicroVMs with a small, clear public interface.",
+  "theme": "aspen",
+  "primaryColor": "#fcc72c",
+  "lightColor": "#f5d8d5",
+  "darkColor": "#1c3c44",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/project-config",
+              "configuration/agent-config",
+              "configuration/environment-variables"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/running-agents",
+              "guides/worker-mode",
+              "guides/ci-setup",
+              "guides/diagnostics"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Core Commands",
+            "pages": [
+              "cli/overview",
+              "cli/init",
+              "cli/doctor",
+              "cli/vms",
+              "cli/run"
+            ]
+          },
+          {
+            "group": "Worker Commands",
+            "pages": [
+              "cli/worker/overview",
+              "cli/worker/run",
+              "cli/worker/ps",
+              "cli/worker/inspect",
+              "cli/worker/logs",
+              "cli/worker/stop",
+              "cli/worker/rm"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "KVM-backed MicroVM isolation for AI coding agents",
+    "First-class support for Codex and Claude Code",
+    "npx launcher with automatic Nix environment management",
+    "Host-brokered worker orchestration with concurrency limits",
+    "Flexible worker-mode routing (vm vs local per-command)",
+    "Project-local config via .firebreak.env with env var override precedence",
+    "Interactive firebreak init for guided project setup",
+    "firebreak doctor for comprehensive diagnostics",
+    "Multi-arch support: x86_64-linux, aarch64-linux, aarch64-darwin"
+  ],
+  "publicApiSurface": [
+    "firebreak init [--force] [--stdout] [--interactive] [--non-interactive]",
+    "firebreak doctor [--verbose] [--json]",
+    "firebreak vms [--json]",
+    "firebreak run <vm> [--shell] [--launch-mode <run|shell>] [--worker-mode <vm|local|name=vm|name=local>] [-- <vm args...>]",
+    "firebreak worker run --backend BACKEND --kind KIND [--workspace PATH] [--package NAME] [--launch-mode MODE] [--max-instances COUNT] [--attach] [--json] [--] COMMAND...",
+    "firebreak worker ps [-a|--all] [--json]",
+    "firebreak worker inspect WORKER_ID",
+    "firebreak worker logs [--stdout|--stderr] [-f|--follow] WORKER_ID",
+    "firebreak worker stop [--all] [--json] [WORKER_ID...]",
+    "firebreak worker rm [--all] [--force] [--json] [WORKER_ID...]",
+    "firebreak worker prune [--force] [--json]",
+    "FIREBREAK_LAUNCH_MODE=run|shell",
+    "FIREBREAK_WORKER_MODE=vm|local",
+    "FIREBREAK_WORKER_MODES=name=vm,name=local",
+    "AGENT_CONFIG=workspace|vm|host|fresh",
+    "nix run .#firebreak-codex",
+    "nix run .#firebreak-claude-code"
+  ]
+}

@@ -1,0 +1,147 @@
+---
+title: "Worker Mode"
+description: "Control whether agent commands run as isolated Firebreak VM workers or as regular in-VM processes."
+---
+
+Worker mode lets you choose how commands such as `codex` and `claude` are executed when launched from inside a Firebreak VM session. You can route them through the shared Firebreak worker bridge (VM mode) or run them as regular in-VM processes (local mode).
+
+## VM mode vs. local mode
+
+<Tabs>
+  <Tab title="VM mode">
+    In `vm` mode, commands declared in `workerProxies` launch as sibling Firebreak workers — each in its own isolated MicroVM, managed by the worker broker.
+
+    ```bash
+    firebreak run codex --worker-mode vm
+    ```
+
+    Use VM mode when you want full isolation per agent invocation, concurrency limits, and lifecycle management via `firebreak worker`.
+  </Tab>
+  <Tab title="Local mode">
+    In `local` mode, commands run as regular processes inside the current VM session — no additional VM is spawned.
+
+    ```bash
+    firebreak run codex --worker-mode local
+    ```
+
+    Use local mode when you want simpler, lighter-weight execution without the overhead of spawning sibling workers.
+  </Tab>
+</Tabs>
+
+## Setting worker mode
+
+### CLI flags
+
+Pass `--worker-mode` to set a global default for the session:
+
+```bash
+firebreak run codex --worker-mode vm
+firebreak run codex --worker-mode local
+```
+
+Pass `--worker-mode` with a `name=mode` value to override a specific command:
+
+```bash
+firebreak run codex --worker-mode codex=vm --worker-mode claude=local
+```
+
+You can combine both: a global default plus per-command overrides:
+
+```bash
+npx firebreak run codex --worker-mode vm
+npx firebreak run codex --worker-mode codex=vm --worker-mode claude=local
+```
+
+**CLI flags always take precedence over environment variables.**
+
+### Environment variables
+
+Set a global default for all worker-proxy commands:
+
+```dotenv
+FIREBREAK_WORKER_MODE=vm
+```
+
+Override specific commands using a comma-separated list:
+
+```dotenv
+FIREBREAK_WORKER_MODES=codex=vm,claude=local
+```
+
+These variables are useful when launching Firebreak VM packages directly with `nix run`, where CLI flags are not available.
+
+## workerProxies
+
+Bridge-enabled recipes declare `workerProxies` to specify which commands resolve through the shared Firebreak worker bridge by default. Each entry declares the kind, backend, package, launch mode, and concurrency limit for that command.
+
+Example `workerProxies` fragment from an external recipe:
+
+```nix
+workerProxies = {
+  codex = {
+    kind = "codex";
+    defaultMode = "vm";
+    backend = "firebreak";
+    package = "firebreak-codex";
+    launch_mode = "run";
+    max_instances = 4;
+  };
+  claude = {
+    kind = "claude-code";
+    defaultMode = "vm";
+    backend = "firebreak";
+    package = "firebreak-claude-code";
+    launch_mode = "run";
+    max_instances = 2;
+  };
+};
+```
+
+If a proxy does not define `defaultMode`, Firebreak falls back to the recipe-level `defaultWorkerMode`, which itself defaults to `local`.
+
+<Note>
+  For Firebreak-managed packages such as `firebreak-codex` and `firebreak-claude-code`, local mode is derived automatically from the declared `package`. Recipe authors do not need to re-declare the upstream npm package or bin name to make local mode work.
+</Note>
+
+## Max instances
+
+The `max_instances` field in a `workerProxies` entry sets a declarative concurrency limit for that worker kind. Firebreak enforces this limit using a per-kind lock scoped to the active Firebreak flake ref.
+
+If the limit is reached when a new worker is requested, Firebreak exits with an error:
+
+```
+worker kind 'codex' reached max_instances=4
+```
+
+## Managing workers
+
+Use the `firebreak worker` subcommands to inspect and control running workers:
+
+| Command | Description |
+|---|---|
+| `firebreak worker run` | Spawn a new worker |
+| `firebreak worker ps` | List active workers |
+| `firebreak worker inspect <id>` | Show full metadata for a worker |
+| `firebreak worker stop <id>` | Request graceful shutdown |
+| `firebreak worker rm <id>` | Remove a stopped worker's state |
+
+Example session:
+
+```bash
+firebreak worker run --backend firebreak --kind codex --package firebreak-codex --workspace "$PWD" -- --version
+firebreak worker ps
+firebreak worker inspect codex-1234abcd
+firebreak worker stop codex-1234abcd
+firebreak worker rm codex-1234abcd
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Worker CLI reference" icon="terminal" href="/cli/worker/overview">
+    Full reference for all `firebreak worker` subcommands and flags.
+  </Card>
+  <Card title="Running agents" icon="rocket" href="/guides/running-agents">
+    How to launch Codex and Claude Code VMs with `firebreak run`.
+  </Card>
+</CardGroup>

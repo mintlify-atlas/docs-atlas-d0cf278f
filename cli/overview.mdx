@@ -1,0 +1,72 @@
+---
+title: "CLI Overview"
+description: "The complete command structure of Skada Firebreak — every public command, flag, and invocation method."
+---
+
+Firebreak exposes a small, intentional CLI surface. Most day-to-day use comes down to four commands: `init`, `doctor`, `vms`, and `run`. The `worker` subtree handles orchestrated multi-agent workflows. The `internal` subtree is reserved for agent and automation plumbing.
+
+## Usage
+
+```
+Skada Firebreak
+
+usage:
+  firebreak init [--force] [--stdout] [--interactive] [--non-interactive]
+  firebreak doctor [--verbose] [--json]
+  firebreak vms [--json]
+  firebreak run <vm> [--shell] [--launch-mode <run|shell>] [--worker-mode <vm|local|name=vm|name=local>] [-- <vm args...>]
+  firebreak worker <subcommand> ...
+  firebreak internal <subcommand> ...
+```
+
+## How to invoke Firebreak
+
+<CodeGroup>
+
+```bash npx
+npx firebreak <command>
+```
+
+```bash nix run
+nix run .#firebreak -- <command>
+```
+
+```bash direct
+firebreak <command>
+```
+
+</CodeGroup>
+
+The `npx` launcher checks that your host is supported (Linux `x86_64`/`aarch64` or Apple Silicon macOS), verifies that `nix` is installed, and resolves the correct Firebreak flake automatically — using a local checkout when you are inside a cloned Firebreak repo, or falling back to `github:skadaai/firebreak` otherwise.
+
+## Available commands
+
+| Command | Description |
+|---|---|
+| `init` | Interactively write Firebreak project defaults to `.firebreak.env` |
+| `doctor` | Explain resolved config and launch readiness |
+| `vms` | List the public Firebreak VM workloads |
+| `run` | Launch a public Firebreak VM workload |
+| `worker` | Manage host-brokered Firebreak workers |
+| `internal` | Internal plumbing for Firebreak's self-development by agents and automation |
+
+<Note>
+The `internal` command is intended for agent and automation use only. Its subcommands (`validate`, `task`, `loop`) are not part of the human-facing interface and may change without notice.
+</Note>
+
+## Command reference
+
+<CardGroup cols={2}>
+  <Card title="firebreak init" icon="file-plus" href="/cli/init">
+    Interactively write a `.firebreak.env` project config file, with prompts for config mode, launch mode, and per-agent overrides.
+  </Card>
+  <Card title="firebreak doctor" icon="stethoscope" href="/cli/doctor">
+    Report resolved config, host platform, KVM state, agent config resolution, and launch readiness in a single command.
+  </Card>
+  <Card title="firebreak vms" icon="list" href="/cli/vms">
+    List all available public VM workloads with names and descriptions, in text or JSON format.
+  </Card>
+  <Card title="firebreak run" icon="play" href="/cli/run">
+    Launch a named VM workload with full control over launch mode, worker routing, and pass-through arguments.
+  </Card>
+</CardGroup>

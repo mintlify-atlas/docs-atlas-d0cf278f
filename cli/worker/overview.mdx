@@ -1,0 +1,84 @@
+---
+title: "Worker Commands Overview"
+description: "Host-brokered worker lifecycle management for agent processes. Run, inspect, stream logs, and clean up managed agent workers from the CLI."
+---
+
+The `worker` subsystem gives you a way to run and manage agent processes — such as Codex or Claude Code — as tracked, named workers with durable state, log capture, and lifecycle control. Workers can be backed by a direct child process or by a Firebreak KVM-backed MicroVM package.
+
+## The worker concept
+
+A worker is a managed agent process with a tracked identity, status, and log files. Workers are registered in a host-side state directory and assigned a unique ID. Each worker records:
+
+- which backend and kind it was started with
+- which workspace directory it runs against
+- its process ID, start time, and exit code
+- paths to its stdout and stderr logs
+- a lifecycle trace log for internal events
+
+State is stored under `$XDG_STATE_HOME/firebreak/worker-broker` (defaults to `~/.local/state/firebreak/worker-broker`).
+
+## Worker ID format
+
+Every worker gets an ID in the form `<kind>-<hash>`, for example:
+
+```
+codex-1a2b3c4d5e6f
+claude-code-9f8e7d6c5b4a
+```
+
+The hash is derived from the kind, backend, creation timestamp, and process ID. Worker IDs are stable across `ps`, `inspect`, `logs`, `stop`, and `rm` operations.
+
+## Lifecycle states
+
+| Status | Meaning |
+|---|---|
+| `active` | Worker record created; process not yet confirmed running |
+| `running` | Process confirmed alive and not stopping |
+| `stopping` | Stop has been requested; process not yet exited |
+| `stopped` | Process exited after a stop request |
+| `exited` | Process exited on its own (no stop request) |
+
+Workers in `active`, `running`, or `stopping` are considered active and appear in the default `ps` output. Workers in `stopped` or `exited` are only shown with `--all`.
+
+## Backends
+
+| Backend | Description |
+|---|---|
+| `process` | Spawns the command directly as a child process of the host shell |
+| `firebreak` | Resolves and launches a Firebreak VM package using Nix; requires `FIREBREAK_FLAKE_REF` and `--package` |
+
+## Subcommands
+
+| Subcommand | Description |
+|---|---|
+| `run` | Spawn a new worker |
+| `ps` | List workers (active by default) |
+| `inspect` | Show full JSON metadata for a single worker |
+| `logs` | Stream or print worker stdout or stderr |
+| `stop` | Send a stop signal to one or more workers |
+| `rm` | Remove worker records, optionally force-stopping first |
+| `prune` | Remove all stopped and exited workers |
+| `debug` | Show bridge debug state (internal use) |
+
+## Subcommand reference
+
+<CardGroup cols={2}>
+  <Card title="worker run" icon="play" href="/cli/worker/run">
+    Spawn a new managed worker with a chosen backend, kind, and workspace.
+  </Card>
+  <Card title="worker ps" icon="list" href="/cli/worker/ps">
+    List active or all workers with status, backend, and exit code.
+  </Card>
+  <Card title="worker inspect" icon="magnifying-glass" href="/cli/worker/inspect">
+    Show the full JSON metadata record for a single worker.
+  </Card>
+  <Card title="worker logs" icon="scroll" href="/cli/worker/logs">
+    Print or follow a worker's stdout or stderr output.
+  </Card>
+  <Card title="worker stop" icon="stop" href="/cli/worker/stop">
+    Send a stop signal to one or more active workers.
+  </Card>
+  <Card title="worker rm" icon="trash" href="/cli/worker/rm">
+    Remove worker records and optionally force-stop running workers first.
+  </Card>
+</CardGroup>

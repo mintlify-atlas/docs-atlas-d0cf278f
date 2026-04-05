@@ -1,0 +1,103 @@
+---
+title: "`firebreak worker ps`"
+description: "List managed workers. Shows active workers by default; use --all to include stopped and exited workers."
+---
+
+## Synopsis
+
+```
+firebreak worker ps [-a|--all] [--json]
+```
+
+## Description
+
+`firebreak worker ps` lists registered workers and their current status. Each call refreshes worker status by checking whether the recorded process is still alive, so the output reflects the actual state of worker processes at the time of the call.
+
+By default, only workers in an active state (`active`, `running`, or `stopping`) are shown. Use `--all` to include workers that have finished (`stopped` or `exited`).
+
+## Flags
+
+<ParamField path="-a, --all">
+  Show all workers, including those with status `stopped` or `exited`. Without this flag, only active workers are listed.
+</ParamField>
+
+<ParamField path="--json">
+  Output the worker list as a JSON array. Each element contains the full worker metadata object. Returns an empty array (`[]`) if no workers match.
+</ParamField>
+
+## Output columns
+
+Text output uses fixed-width columns:
+
+| Column | Description |
+|---|---|
+| `WORKER ID` | The unique worker identifier in `<kind>-<hash>` format |
+| `KIND` | The agent kind label (e.g. `codex`, `claude-code`) |
+| `BACKEND` | The execution backend (`process` or `firebreak`) |
+| `STATUS` | Current lifecycle status of the worker |
+| `EXIT` | Exit code if the worker has finished; `-` if still running |
+
+## Status values
+
+| Status | Meaning |
+|---|---|
+| `active` | Worker record created; process not yet confirmed running |
+| `running` | Process is alive and not stopping |
+| `stopping` | Stop has been requested; process not yet exited |
+| `stopped` | Process exited after a stop request |
+| `exited` | Process exited without a stop request |
+
+## Examples
+
+List active workers:
+
+```bash
+firebreak worker ps
+```
+
+Example output:
+
+```
+WORKER ID              KIND           BACKEND    STATUS     EXIT
+codex-1a2b3c4d5e6f     codex          firebreak  running    -
+claude-code-9f8e7d6c   claude-code    firebreak  stopping   -
+```
+
+List all workers including finished ones:
+
+```bash
+firebreak worker ps --all
+```
+
+Output as JSON:
+
+```bash
+firebreak worker ps --json
+```
+
+Example JSON output:
+
+```json
+[
+  {
+    "worker_id": "codex-1a2b3c4d5e6f",
+    "authority": "host",
+    "backend": "firebreak",
+    "kind": "codex",
+    "status": "running",
+    "workspace": "/home/user/project",
+    "package_name": "firebreak-codex",
+    "launch_mode": "run",
+    "pid": 12345,
+    "created_at": "2026-04-05T10:00:00Z",
+    "finished_at": null,
+    "exit_code": null,
+    "stop_requested": false,
+    "flake_ref": "github:skadaai/firebreak"
+  }
+]
+```
+
+<Note>
+  `firebreak worker ps` does not show workers from other hosts or sessions. Worker state is local to the host state directory at `$XDG_STATE_HOME/firebreak/worker-broker`.
+</Note>

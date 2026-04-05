@@ -1,0 +1,223 @@
+---
+title: "Environment Variables"
+description: "Complete reference for all public Firebreak environment variables, grouped by category."
+keywords: ["environment variables", "AGENT_CONFIG", "FIREBREAK_LAUNCH_MODE", "FIREBREAK_WORKER_MODE", "configuration reference"]
+---
+
+Firebreak's behavior is controlled through environment variables. Most of these can be set in your project's [`.firebreak.env`](/configuration/project-config) file. Variables marked **env only** must be real environment variables — they are not read from `.firebreak.env`.
+
+<Note>
+Real environment variables always take precedence over values in `.firebreak.env`. If a variable is already set in your shell, the file value for that key is ignored.
+</Note>
+
+---
+
+## Agent config
+
+These variables control where Codex and Claude Code source their configuration directories inside Firebreak VMs. See [Agent Configuration](/configuration/agent-config) for a full explanation of each mode.
+
+| Variable | Values | Default | `.firebreak.env` |
+|---|---|---|---|
+| `AGENT_CONFIG` | `workspace` \| `vm` \| `host` \| `fresh` | `vm` | Yes |
+| `AGENT_CONFIG_HOST_PATH` | filesystem path | `~/.config/firebreak-agent` | Yes |
+| `CODEX_CONFIG` | `workspace` \| `vm` \| `host` \| `fresh` | inherits `AGENT_CONFIG` | Yes |
+| `CODEX_CONFIG_HOST_PATH` | filesystem path | `~/.codex` | Yes |
+| `CLAUDE_CONFIG` | `workspace` \| `vm` \| `host` \| `fresh` | inherits `AGENT_CONFIG` | Yes |
+| `CLAUDE_CONFIG_HOST_PATH` | filesystem path | `~/.claude` | Yes |
+
+### `AGENT_CONFIG`
+
+Sets the shared default config mode for all agents.
+
+```bash
+AGENT_CONFIG=workspace
+```
+
+### `AGENT_CONFIG_HOST_PATH`
+
+Specifies the host-side directory mounted into the VM when `AGENT_CONFIG=host`. Tilde expansion is supported.
+
+```bash
+AGENT_CONFIG_HOST_PATH=~/.config/firebreak-agent
+```
+
+### `CODEX_CONFIG`
+
+Overrides `AGENT_CONFIG` for Codex only.
+
+```bash
+CODEX_CONFIG=workspace
+```
+
+### `CODEX_CONFIG_HOST_PATH`
+
+Specifies the host-side directory for Codex when `CODEX_CONFIG=host`. Defaults to `~/.codex`.
+
+```bash
+CODEX_CONFIG_HOST_PATH=~/.codex
+```
+
+### `CLAUDE_CONFIG`
+
+Overrides `AGENT_CONFIG` for Claude Code only.
+
+```bash
+CLAUDE_CONFIG=host
+```
+
+### `CLAUDE_CONFIG_HOST_PATH`
+
+Specifies the host-side directory for Claude Code when `CLAUDE_CONFIG=host`. Defaults to `~/.claude`.
+
+```bash
+CLAUDE_CONFIG_HOST_PATH=~/.claude
+```
+
+---
+
+## Launch control
+
+These variables control how Firebreak launches VMs and routes agent commands.
+
+| Variable | Values | Default | `.firebreak.env` |
+|---|---|---|---|
+| `FIREBREAK_LAUNCH_MODE` | `run` \| `shell` | `run` | Yes |
+| `FIREBREAK_WORKER_MODE` | `vm` \| `local` | unset | Yes |
+| `FIREBREAK_WORKER_MODES` | `name=vm,name=local,...` | unset | Yes |
+| `FIREBREAK_WORKER_PROXY_MODE` | `vm` \| `local` | unset | Yes |
+
+### `FIREBREAK_LAUNCH_MODE`
+
+Controls what happens when a VM boots.
+
+- `run` — starts the agent directly (default)
+- `shell` — drops into the maintenance shell instead of starting the agent
+
+```bash
+FIREBREAK_LAUNCH_MODE=run
+```
+
+You can also pass `--shell` or `--launch-mode shell` to `firebreak run` as a one-off override:
+
+```bash
+firebreak run codex --shell
+firebreak run codex --launch-mode shell
+```
+
+### `FIREBREAK_WORKER_MODE`
+
+Sets the global default for how agent commands are dispatched in packaged node-cli recipes that declare `workerProxies`.
+
+- `vm` — route agent commands through sibling Firebreak workers
+- `local` — run agent commands as regular in-VM processes
+
+```bash
+FIREBREAK_WORKER_MODE=vm
+```
+
+This is also available as a `firebreak run` flag:
+
+```bash
+firebreak run codex --worker-mode vm
+firebreak run codex --worker-mode local
+```
+
+### `FIREBREAK_WORKER_MODES`
+
+Comma-separated per-command overrides for worker routing. Each entry is `name=vm` or `name=local`.
+
+```bash
+FIREBREAK_WORKER_MODES=codex=vm,claude=local
+```
+
+As `firebreak run` flags, each override is passed separately:
+
+```bash
+firebreak run codex --worker-mode codex=vm --worker-mode claude=local
+```
+
+### `FIREBREAK_WORKER_PROXY_MODE`
+
+A legacy alias for `FIREBREAK_WORKER_MODE`. `FIREBREAK_WORKER_MODE` takes precedence when both are set. Prefer `FIREBREAK_WORKER_MODE` for new configuration.
+
+```bash
+FIREBREAK_WORKER_PROXY_MODE=vm
+```
+
+<Note>
+CLI flags always take precedence over environment variables and `.firebreak.env` values for launch control settings.
+</Note>
+
+---
+
+## Launcher internals
+
+These variables affect the `npx firebreak` launcher. They are read by the Node.js launcher process and are **not** read from `.firebreak.env` — they must be set as real environment variables before invoking `npx firebreak`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `FIREBREAK_LAUNCHER_KVM_PATH` | `/dev/kvm` | Path to the KVM device the launcher checks before non-diagnostic commands on Linux. |
+| `FIREBREAK_LAUNCHER_PACKAGE_ROOT` | — | Force the launcher to use a specific local Firebreak checkout rather than auto-detecting one. |
+| `FIREBREAK_LAUNCHER_DISABLE_NIX_HELPERS` | — | Set to `1` to disable `--accept-flake-config` and `--extra-experimental-features` when the launcher invokes Nix. |
+| `FIREBREAK_LAUNCHER_TEST_PLATFORM` | `process.platform` | Override the detected platform. For testing only. |
+| `FIREBREAK_LAUNCHER_TEST_ARCH` | `process.arch` | Override the detected CPU architecture. For testing only. |
+
+### `FIREBREAK_LAUNCHER_KVM_PATH`
+
+The launcher checks this path for read/write access before running commands that require a VM on Linux. Override it if your KVM device is at a non-standard location.
+
+```bash
+FIREBREAK_LAUNCHER_KVM_PATH=/dev/kvm npx firebreak run codex
+```
+
+### `FIREBREAK_LAUNCHER_PACKAGE_ROOT`
+
+By default the launcher walks up from `$PWD` to find a Firebreak checkout automatically. Set this variable to point it at a specific directory instead.
+
+```bash
+FIREBREAK_LAUNCHER_PACKAGE_ROOT=/path/to/firebreak npx firebreak run codex
+```
+
+### `FIREBREAK_LAUNCHER_DISABLE_NIX_HELPERS`
+
+When set to `1`, the launcher omits `--accept-flake-config` and `--extra-experimental-features nix-command flakes` from Nix invocations. Use this if your Nix configuration already enables the required experimental features globally.
+
+```bash
+FIREBREAK_LAUNCHER_DISABLE_NIX_HELPERS=1 npx firebreak run codex
+```
+
+---
+
+## Worker broker
+
+These variables configure the host-side worker broker used by `firebreak worker` commands. They must be set as real environment variables.
+
+| Variable | Default | Description |
+|---|---|---|
+| `FIREBREAK_WORKER_STATE_DIR` | `$XDG_STATE_HOME/firebreak/worker-broker` | Directory where the worker broker stores state for running workers. |
+| `FIREBREAK_WORKER_AUTHORITY` | `host` | Authority identifier used by the worker broker. |
+| `FIREBREAK_WORKER_ALLOW_FIREBREAK` | `1` | Set to `0` to prevent the worker broker from spawning Firebreak-backed workers. |
+
+### `FIREBREAK_WORKER_STATE_DIR`
+
+The broker writes worker state (PIDs, socket paths, metadata) to this directory. Override it if you want to isolate broker state from the default XDG location.
+
+```bash
+FIREBREAK_WORKER_STATE_DIR=/tmp/my-broker-state firebreak worker ps
+```
+
+### `FIREBREAK_WORKER_AUTHORITY`
+
+Identifies this broker instance. Useful when running multiple broker instances on the same host.
+
+```bash
+FIREBREAK_WORKER_AUTHORITY=ci-host firebreak worker run --kind codex --workspace "$PWD"
+```
+
+### `FIREBREAK_WORKER_ALLOW_FIREBREAK`
+
+Controls whether the broker is allowed to launch Firebreak-backed (VM) workers. Set to `0` in environments where KVM is unavailable.
+
+```bash
+FIREBREAK_WORKER_ALLOW_FIREBREAK=0 firebreak worker run --kind codex --workspace "$PWD"
+```

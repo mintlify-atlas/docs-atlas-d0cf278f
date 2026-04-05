@@ -1,0 +1,130 @@
+---
+title: "CI Setup"
+description: "Configure GitHub Actions to run Firebreak VM smoke tests on a self-hosted KVM runner alongside hosted Nix checks."
+---
+
+Firebreak ships two GitHub Actions workflows. One runs on GitHub-hosted infrastructure and requires no additional setup. The other runs VM smoke tests and requires a self-hosted Linux runner with KVM access.
+
+## Workflows
+
+| Workflow | Runner | What it does |
+|---|---|---|
+| `ci.yml` | GitHub-hosted | Runs `nix flake check` on every push and pull request |
+| `vm-smoke.yml` | Self-hosted (KVM) | Runs `nix run .#firebreak-test-smoke-codex` on a KVM-capable machine |
+
+The hosted `ci.yml` workflow works immediately after you push to GitHub. The VM smoke workflow requires the steps below.
+
+## Setup
+
+<Steps>
+  <Step title="Register a self-hosted KVM runner">
+    Open your repository on GitHub and go to **Settings** > **Actions** > **Runners**, then click **New self-hosted runner**.
+
+    Choose:
+    - **Operating system:** Linux
+    - **Architecture:** the architecture of the machine you are registering (`x64` or `ARM64`)
+
+    Prepare a Linux machine with:
+    - Nix installed
+    - KVM available (`/dev/kvm` accessible and writable)
+    - `git` installed
+    - A user that has permission to read and write `/dev/kvm`
+
+    Follow GitHub's generated runner installation commands on that machine.
+
+    When prompted for labels during runner configuration, make sure the runner has all three of these labels:
+    - `self-hosted`
+    - `linux`
+    - `kvm`
+
+    Start the runner service and confirm it appears as **Idle** on the GitHub runners page.
+  </Step>
+
+  <Step title="Enable the VM smoke workflow">
+    <Warning>
+      Without the `ENABLE_SELF_HOSTED_VM_SMOKE` repository variable set to `1`, the `vm-smoke.yml` workflow only triggers manually via `workflow_dispatch`. It will not run automatically on push or pull request.
+    </Warning>
+
+    In your repository, go to **Settings** > **Secrets and variables** > **Actions** and open the **Variables** tab.
+
+    Create a new repository variable:
+
+    | Field | Value |
+    |---|---|
+    | Name | `ENABLE_SELF_HOSTED_VM_SMOKE` |
+    | Value | `1` |
+
+    Save the variable.
+  </Step>
+
+  <Step title="Verify the setup">
+    Push a branch or open a pull request. Confirm that both workflows start:
+
+    - **CI / Nix Checks** runs on a GitHub-hosted runner
+    - **Firebreak Smoke / firebreak-codex smoke** runs on your self-hosted KVM runner
+
+    If you need to test the smoke workflow before pushing a branch, trigger it manually from the **Actions** tab using **Run workflow**.
+  </Step>
+</Steps>
+
+## Common failure checks
+
+<AccordionGroup>
+  <Accordion title="Runner never picks up the job">
+    Check that the runner is online and has the correct labels.
+
+    Required labels: `self-hosted`, `linux`, and `kvm`. If any label is missing, the `vm-smoke.yml` workflow will not route jobs to the runner.
+
+    Verify the runner is showing as **Idle** in **Settings** > **Actions** > **Runners**. If it shows as **Offline**, restart the runner service on the machine.
+  </Accordion>
+
+  <Accordion title="VM smoke job is skipped">
+    The job is skipped when `ENABLE_SELF_HOSTED_VM_SMOKE` is not set to `1`.
+
+    Go to **Settings** > **Secrets and variables** > **Actions** > **Variables** and confirm the variable exists with value `1`. Note that the variable must be a repository variable, not a secret.
+  </Accordion>
+
+  <Accordion title="VM boot fails immediately">
+    If the smoke job starts but the VM fails to boot, check KVM access on the runner machine.
+
+    Run the following on the runner host to confirm KVM is accessible:
+
+    ```bash
+    ls -la /dev/kvm
+    ```
+
+    The runner user must have read and write permission on `/dev/kvm`. You may need to add the user to the `kvm` group:
+
+    ```bash
+    sudo usermod -aG kvm <runner-user>
+    ```
+
+    Also confirm that the runner can execute Nix:
+
+    ```bash
+    nix run .#firebreak-test-smoke-codex
+    ```
+  </Accordion>
+
+  <Accordion title="Nix is not available on the runner">
+    Firebreak requires Nix with flakes support. Install Nix on the runner machine using the Determinate Systems installer or the official Nix installer, then enable experimental features:
+
+    ```bash
+    mkdir -p ~/.config/nix
+    echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+    ```
+
+    Restart the runner service after installing Nix so the new `PATH` is picked up.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Diagnostics" icon="stethoscope" href="/guides/diagnostics">
+    Run `firebreak doctor` on the runner host to check platform readiness before debugging CI failures.
+  </Card>
+  <Card title="Running agents" icon="rocket" href="/guides/running-agents">
+    Learn how VM launch modes and workspace mounting work locally before configuring CI.
+  </Card>
+</CardGroup>

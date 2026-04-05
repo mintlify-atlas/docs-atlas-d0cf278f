@@ -1,0 +1,98 @@
+---
+title: "`firebreak run`"
+description: "Launch a public Firebreak VM workload with full control over launch mode, worker routing, and pass-through arguments."
+---
+
+## Synopsis
+
+```bash
+firebreak run <vm> [--shell] [--launch-mode <run|shell>] [--worker-mode <vm|local|name=vm|name=local>] [-- <vm args...>]
+```
+
+## What it does
+
+`firebreak run` launches a named Firebreak VM workload. The VM starts, your current working directory is mounted into it at the same path, and the agent CLI (Codex or Claude Code) starts inside the isolated environment. When the agent exits, the VM tears down.
+
+Use `firebreak vms` to list the available VM names.
+
+## Arguments
+
+| Argument | Description |
+|---|---|
+| `<vm>` | The VM name to launch. Accepted values: `codex`, `claude-code`. |
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--shell` | Enter the VM maintenance shell instead of launching the agent. Shorthand for `--launch-mode shell`. |
+| `--launch-mode run\|shell` | Explicitly set the launch mode. `run` starts the agent (default); `shell` enters the maintenance shell. |
+| `--worker-mode vm\|local` | Set the global worker routing for this launch. `vm` routes worker commands to sibling Firebreak VMs; `local` runs them as regular in-VM processes. |
+| `--worker-mode name=vm\|name=local` | Set per-command worker routing. Specify this flag multiple times to route different commands independently (e.g. `--worker-mode codex=vm --worker-mode claude=local`). |
+| `-- <vm args...>` | Pass arguments directly to the underlying VM command. Everything after `--` is forwarded to the agent CLI. |
+
+<Note>
+The `--worker-proxy-mode` alias is accepted as a synonym for `--worker-mode` and behaves identically. The value `worker` is normalized to `vm` automatically.
+</Note>
+
+## Environment variable equivalents
+
+CLI flags take precedence over environment variables. You can also set these in `.firebreak.env` to apply them as project defaults.
+
+| Environment variable | Equivalent flag | Description |
+|---|---|---|
+| `FIREBREAK_LAUNCH_MODE=run\|shell` | `--launch-mode` | Sets the global launch mode |
+| `FIREBREAK_WORKER_MODE=vm\|local` | `--worker-mode vm\|local` | Sets the global worker routing |
+| `FIREBREAK_WORKER_MODES=codex=vm,claude=local` | `--worker-mode name=...` (multiple) | Sets per-command worker routing as a comma-separated list |
+
+**Precedence:** CLI flags > environment variables > `.firebreak.env` values.
+
+## Examples
+
+```bash
+# Launch Codex in the default run mode
+firebreak run codex
+
+# Enter the Codex VM maintenance shell
+firebreak run codex --shell
+
+# Equivalent shell entry using --launch-mode
+firebreak run codex --launch-mode shell
+
+# Route all worker commands to local in-VM processes
+firebreak run codex --worker-mode local
+
+# Route codex commands to a sibling VM, claude commands to local
+firebreak run codex --worker-mode codex=vm --worker-mode claude=local
+
+# Pass --help through to the Claude Code agent CLI
+firebreak run claude-code -- --help
+```
+
+<CodeGroup>
+
+```bash npx
+npx firebreak run codex
+npx firebreak run codex --shell
+npx firebreak run claude-code -- --help
+```
+
+```bash nix run
+nix run .#firebreak -- run codex
+FIREBREAK_LAUNCH_MODE=shell nix run .#firebreak-codex
+```
+
+</CodeGroup>
+
+## Worker routing
+
+For VM workloads that expose `workerProxies` (packaged node-cli VMs), `--worker-mode` controls whether named commands dispatch to sibling Firebreak workers or run as regular in-VM processes.
+
+- **`vm`** — the named command spawns a new Firebreak worker VM for each invocation.
+- **`local`** — the named command runs directly inside the current VM as a regular process.
+
+Per-command overrides (`name=vm` or `name=local`) are specified by repeating `--worker-mode`. Each override applies only to the named command; the global `--worker-mode` value (or its default) applies to all others.
+
+<Tip>
+Use `FIREBREAK_WORKER_MODES=codex=vm,claude=local` to set per-command routing as a project default in `.firebreak.env`, so you don't need to repeat the flags on every invocation.
+</Tip>

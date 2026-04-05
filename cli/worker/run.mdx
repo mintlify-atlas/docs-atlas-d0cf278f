@@ -1,0 +1,133 @@
+---
+title: "`firebreak worker run`"
+description: "Spawn a new managed worker process with a chosen backend, kind label, and workspace directory."
+---
+
+## Synopsis
+
+```
+firebreak worker run --backend BACKEND --kind KIND [--workspace PATH] [--package NAME] [--launch-mode MODE] [--max-instances COUNT] [--attach] [--json] [--] COMMAND...
+```
+
+## Description
+
+`firebreak worker run` creates a new worker record and spawns the agent process. The worker is assigned a unique ID in the form `<kind>-<hash>` and its state, stdout, stderr, and trace log are written to the host-side state directory.
+
+By default, the worker runs detached in the background and its ID is printed to stdout. Use `--attach` to run in the foreground instead.
+
+## Required flags
+
+<ParamField path="--backend" type="process | firebreak" required>
+  The execution backend for this worker.
+
+  - `process` — spawns the command directly as a child process. A `COMMAND...` argument is required after `--`.
+  - `firebreak` — resolves and launches a Firebreak VM package using Nix. Requires `FIREBREAK_FLAKE_REF` to be set and `--package` to be specified.
+</ParamField>
+
+<ParamField path="--kind" type="string" required>
+  A label that identifies the agent kind, for example `codex` or `claude-code`. Used as the prefix of the worker ID and as the scope key for concurrency limits. Must be a single path-safe token with no slashes or whitespace.
+</ParamField>
+
+## Optional flags
+
+<ParamField path="--workspace" type="path" default="current directory">
+  Absolute path to the working directory the worker process runs in. Must be an absolute path.
+</ParamField>
+
+<ParamField path="--package" type="string">
+  The Firebreak package name to resolve from the flake, for example `firebreak-codex` or `firebreak-claude-code`. Required when `--backend firebreak` is used.
+</ParamField>
+
+<ParamField path="--launch-mode" type="run | shell" default="run">
+  Launch mode forwarded to the Firebreak backend. `run` starts the agent normally; `shell` opens a maintenance shell. Only applies to the `firebreak` backend.
+</ParamField>
+
+<ParamField path="--max-instances" type="integer">
+  Maximum number of concurrently active workers of the same kind and backend scope. If this limit is already reached, the command exits with an error without spawning a new worker. Uses advisory directory locking to enforce the limit safely across concurrent callers.
+</ParamField>
+
+<ParamField path="--attach">
+  Run the worker in the foreground. The terminal's TTY is captured and terminal size is forwarded to the worker process. Cannot be combined with `--json`.
+</ParamField>
+
+<ParamField path="--json">
+  After spawning, print the full worker metadata as JSON instead of just the worker ID. Cannot be combined with `--attach`.
+</ParamField>
+
+<ParamField path="--">
+  Separator marking the end of `firebreak worker run` flags. Everything after `--` is passed as the command to execute. Required when using the `process` backend.
+</ParamField>
+
+## Output
+
+Without `--json`, the worker ID is printed to stdout:
+
+```
+codex-1a2b3c4d5e6f
+```
+
+With `--json`, the full metadata object is printed:
+
+```json
+{
+  "worker_id": "codex-1a2b3c4d5e6f",
+  "authority": "host",
+  "backend": "process",
+  "kind": "codex",
+  "status": "running",
+  "workspace": "/home/user/project",
+  "package_name": null,
+  "launch_mode": null,
+  "pid": 12345,
+  "created_at": "2026-04-05T10:00:00Z",
+  "finished_at": null,
+  "exit_code": null,
+  "stop_requested": false,
+  "flake_ref": null,
+  "trace_path": "/home/user/.local/state/firebreak/worker-broker/workers/codex-1a2b3c4d5e6f/trace.log"
+}
+```
+
+## Backend behavior
+
+### `process` backend
+
+Spawns the provided `COMMAND...` as a child process under a launch script. stdout and stderr are captured to log files in the worker state directory. The process runs detached from the current shell session (via `nohup`) unless `--attach` is used.
+
+### `firebreak` backend
+
+Resolves the Nix package at `$FIREBREAK_FLAKE_REF#<package>` and executes the resulting binary. The `FIREBREAK_INSTANCE_DIR` and `FIREBREAK_LAUNCH_MODE` environment variables are set for the agent process. Agent config variables (`AGENT_CONFIG`, `CODEX_CONFIG`, `CLAUDE_CONFIG`, and their `_HOST_PATH` variants) are cleared from the child environment to avoid leaking host config into the VM session.
+
+<Warning>
+  The `firebreak` backend requires the `FIREBREAK_FLAKE_REF` environment variable to be set. If it is missing, the command exits with an error before spawning anything.
+</Warning>
+
+## Examples
+
+Spawn a Codex worker using the `process` backend and run `codex --version`:
+
+```bash
+firebreak worker run --backend process --kind codex --workspace "$PWD" -- codex --version
+```
+
+Spawn a Firebreak-managed Codex VM worker in the background and capture its ID:
+
+```bash
+worker_id=$(firebreak worker run --backend firebreak --kind codex --package firebreak-codex --workspace "$PWD" --json | jq -r .worker_id)
+```
+
+Spawn a worker with a concurrency limit of 4 for this kind:
+
+```bash
+firebreak worker run --backend firebreak --kind codex --package firebreak-codex --max-instances 4 --workspace "$PWD"
+```
+
+Launch interactively in the foreground (attach mode):
+
+```bash
+firebreak worker run --backend firebreak --kind codex --package firebreak-codex --attach --workspace "$PWD"
+```
+
+<Tip>
+  Use `--json` in scripts to capture the full metadata including `worker_id`, then pass the ID to `firebreak worker logs` or `firebreak worker inspect` for follow-up operations.
+</Tip>

@@ -1,0 +1,111 @@
+---
+title: "Running Agents"
+description: "Launch Codex and Claude Code in isolated Firebreak MicroVMs using the CLI, npx, or Nix directly."
+---
+
+Firebreak launches AI coding agents inside isolated KVM-backed MicroVMs. Your current working directory is mounted into the VM at the same path, so the agent has full access to your project files without touching anything outside the workspace.
+
+## Available VMs
+
+Run `firebreak vms` to list the available VM workloads:
+
+```bash
+firebreak vms
+```
+
+```
+Available Firebreak VMs
+
+  codex        Codex local Firebreak VM
+  claude-code  Claude Code local Firebreak VM
+```
+
+You pass one of these names to `firebreak run` to launch that agent.
+
+## Launch modes
+
+Firebreak supports two launch modes:
+
+- **`run`** (default) — starts the agent inside the VM immediately
+- **`shell`** — opens a maintenance shell inside the VM instead of starting the agent; useful for inspecting the environment or debugging
+
+## Launching with the Firebreak CLI
+
+<CodeGroup>
+
+```bash Codex
+firebreak run codex
+```
+
+```bash Claude Code
+firebreak run claude-code
+```
+
+</CodeGroup>
+
+Pass `--shell` or `--launch-mode shell` to enter the maintenance shell instead:
+
+```bash
+firebreak run codex --shell
+firebreak run codex --launch-mode shell
+```
+
+Pass arguments to the agent itself after `--`:
+
+```bash
+firebreak run claude-code -- --help
+```
+
+## Launching with npx
+
+If you do not have Firebreak installed globally, use `npx`:
+
+```bash
+npx firebreak run codex
+npx firebreak run claude-code
+```
+
+The npx launcher checks that Nix is installed and that `/dev/kvm` is accessible before starting the VM.
+
+## Launching with Nix directly
+
+You can invoke Firebreak VM packages through `nix run` without the CLI wrapper:
+
+```bash
+nix run .#firebreak-codex
+nix run .#firebreak-claude-code
+```
+
+To reach the maintenance shell via environment variable:
+
+```bash
+FIREBREAK_LAUNCH_MODE=shell nix run .#firebreak-codex
+```
+
+## Workspace mounting
+
+Firebreak mounts your current working directory into the VM at the **exact same path**. If you run `firebreak run codex` from `/home/you/projects/myapp`, the VM sees that directory at `/home/you/projects/myapp`. The agent can read and write your project files as if it were running on the host.
+
+<Warning>
+  If your working directory path contains whitespace, the VM mount will fail. Move your project to a path without spaces before launching a Firebreak VM. Run `firebreak doctor` to check whether your current path has this issue.
+</Warning>
+
+## Supported host platforms
+
+| Platform | Status |
+|---|---|
+| `x86_64-linux` | Supported |
+| `aarch64-linux` | Supported |
+| `aarch64-darwin` (Apple Silicon) | Experimental |
+| `x86_64-darwin` (Intel Mac) | Not supported |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Worker mode" icon="network-wired" href="/guides/worker-mode">
+    Run multiple agents in parallel and control VM vs. local routing per command.
+  </Card>
+  <Card title="Diagnostics" icon="stethoscope" href="/guides/diagnostics">
+    Use `firebreak doctor` to verify your platform and config before launching.
+  </Card>
+</CardGroup>

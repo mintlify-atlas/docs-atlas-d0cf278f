@@ -1,0 +1,132 @@
+---
+title: "Agent Configuration"
+description: "Control where Codex and Claude Code store their configuration inside Firebreak VMs using AGENT_CONFIG and per-agent overrides."
+keywords: ["agent config", "AGENT_CONFIG", "CODEX_CONFIG", "CLAUDE_CONFIG", "workspace", "vm", "host", "fresh"]
+---
+
+Firebreak gives you control over where each agent's configuration directory is sourced from when a VM boots. The `AGENT_CONFIG` variable sets a shared default for all agents; per-agent variables let you override it for Codex or Claude Code individually.
+
+## Config modes
+
+There are four modes. Each tells Firebreak where to mount the agent's config directory inside the VM.
+
+### `workspace`
+
+Uses a project-local config directory when one is present in the current working directory. For Codex this is `.codex/`; for Claude Code it is `.claude/`.
+
+This is the recommended mode for projects that version-control their agent config alongside source code. Each project gets its own isolated config, and the VM sees whatever the project directory contains.
+
+If the directory does not exist in the project root, the agent starts with no pre-existing config.
+
+### `vm`
+
+Keeps config inside the VM's persistent storage volume (`/var/lib/dev/`). The config survives across launches of the same VM but is not shared with the host or other projects.
+
+This is the default when `AGENT_CONFIG` is not set. It is a safe starting point: agents accumulate settings over time in the VM without touching anything on the host.
+
+### `host`
+
+Mounts a directory from the host filesystem into the VM. All projects using `host` mode share the same config directory, which makes it easy to reuse API keys, model preferences, and other persistent settings without reconfiguring each project.
+
+When using `host` mode, you must also specify the path with `AGENT_CONFIG_HOST_PATH` (or the per-agent equivalent). The path defaults to `~/.config/firebreak-agent` for the shared setting.
+
+### `fresh`
+
+Starts from an empty config directory at `/run/agent-config-fresh` on every launch. Nothing persists across VM boots.
+
+Use `fresh` when you want a completely clean agent environment each time — for example, in CI or when running isolated evaluations.
+
+## Choosing a mode
+
+| Mode | Config persists | Shared across projects | Shared with host |
+|---|---|---|---|
+| `workspace` | While files exist in project | No | Read/write |
+| `vm` | Across VM reboots | No | No |
+| `host` | Always | Yes | Read/write |
+| `fresh` | Never | No | No |
+
+**Use `workspace`** when your project checks in agent config (instructions, memory files, tool settings) alongside source code.
+
+**Use `vm`** when you want agent memory to accumulate inside the VM over time, isolated from other projects and from the host.
+
+**Use `host`** when you have a shared set of credentials or preferences you want every project to inherit automatically.
+
+**Use `fresh`** for CI, automated runs, or any situation where a clean slate on every launch is required.
+
+## Shared config variable
+
+`AGENT_CONFIG` sets the default mode for all agents:
+
+```dotenv
+AGENT_CONFIG=workspace
+```
+
+Paired with `AGENT_CONFIG_HOST_PATH` when using `host` mode:
+
+```dotenv
+AGENT_CONFIG=host
+AGENT_CONFIG_HOST_PATH=~/.config/firebreak-agent
+```
+
+## Per-agent overrides
+
+`CODEX_CONFIG` and `CLAUDE_CONFIG` accept the same four mode values and override `AGENT_CONFIG` for the respective agent. Per-agent host paths are set with `CODEX_CONFIG_HOST_PATH` and `CLAUDE_CONFIG_HOST_PATH`.
+
+This lets you mix modes across agents in a single project. For example, to use the project-local directory for Codex while keeping Claude Code config inside the VM:
+
+```dotenv
+AGENT_CONFIG=vm
+CODEX_CONFIG=workspace
+```
+
+Or to give each agent its own host-side directory:
+
+```dotenv
+AGENT_CONFIG=host
+CODEX_CONFIG_HOST_PATH=~/.codex
+CLAUDE_CONFIG_HOST_PATH=~/.claude
+```
+
+## Examples
+
+<CodeGroup>
+
+```dotenv workspace mode
+# Use project-local config directories for all agents
+AGENT_CONFIG=workspace
+```
+
+```dotenv vm mode
+# Keep config inside the VM (default behavior)
+AGENT_CONFIG=vm
+```
+
+```dotenv host mode
+# Mount a shared host directory into every VM
+AGENT_CONFIG=host
+AGENT_CONFIG_HOST_PATH=~/.config/firebreak-agent
+```
+
+```dotenv fresh mode
+# Start from an empty config on every launch
+AGENT_CONFIG=fresh
+```
+
+```dotenv per-agent overrides
+# Codex uses the project directory; Claude Code uses a host path
+AGENT_CONFIG=workspace
+CLAUDE_CONFIG=host
+CLAUDE_CONFIG_HOST_PATH=~/.claude
+```
+
+</CodeGroup>
+
+## Verifying resolution
+
+Run `firebreak doctor` to see which mode and path each agent will use after all variables and `.firebreak.env` values are resolved:
+
+```bash
+firebreak doctor
+```
+
+The output includes `codex_config` and `claude_config` lines showing the active mode and the resolved directory path.

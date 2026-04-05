@@ -1,0 +1,67 @@
+---
+title: "`firebreak vms`"
+description: "List the public Firebreak VM workloads available to run."
+---
+
+## Synopsis
+
+```bash
+firebreak vms [--json]
+```
+
+## What it does
+
+`firebreak vms` lists the public VM workloads that Firebreak can launch via `firebreak run`. Each entry includes the VM name and a short description.
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--json` | Emit a JSON array instead of the human-readable table. |
+
+## Available VMs
+
+| Name | Description |
+|---|---|
+| `codex` | Codex local Firebreak VM |
+| `claude-code` | Claude Code local Firebreak VM |
+
+## Text output
+
+By default, `firebreak vms` prints a formatted table followed by example invocations:
+
+```
+Available Firebreak VMs
+
+  codex        Codex local Firebreak VM
+  claude-code  Claude Code local Firebreak VM
+
+Examples:
+  firebreak run codex
+  firebreak run codex --shell
+  firebreak run codex --launch-mode shell
+  firebreak run codex --worker-mode local
+  firebreak run codex --worker-mode codex=vm --worker-mode claude=local
+  firebreak run claude-code -- --help
+```
+
+## JSON output
+
+With `--json`, the command emits a JSON array:
+
+```json
+[
+  {"name": "codex", "description": "Codex local Firebreak VM"},
+  {"name": "claude-code", "description": "Claude Code local Firebreak VM"}
+]
+```
+
+## Examples
+
+```bash
+# Text table
+firebreak vms
+
+# Machine-readable JSON
+firebreak vms --json
+```

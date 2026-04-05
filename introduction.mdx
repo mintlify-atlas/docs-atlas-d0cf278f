@@ -1,0 +1,85 @@
+---
+title: "Introduction"
+description: "Skada Firebreak is a VM-first control plane for running AI coding agents in isolated KVM-backed MicroVMs — reliable isolation for high-trust automation."
+---
+
+Skada Firebreak gives you a small, clear interface for running AI coding agents inside isolated MicroVMs. Every agent session gets its own KVM-backed sandbox with your project directory mounted in at the same path, so agents can write and run code without touching the host system.
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Get Firebreak running and launch your first agent VM in under five minutes.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Firebreak via npx, Nix, or from a local checkout.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/cli/overview">
+    Every command, flag, and option in Firebreak's public interface.
+  </Card>
+  <Card title="Worker orchestration" icon="network-wired" href="/cli/worker/overview">
+    Run multiple agent workers in parallel with lifecycle control.
+  </Card>
+</CardGroup>
+
+## What is Firebreak?
+
+Skada Firebreak wraps AI agent CLIs — currently **Codex** and **Claude Code** — in lightweight MicroVMs built on `microvm.nix` and KVM. Your current working directory is mounted into the VM at the same absolute path, so the agent sees your project exactly as it exists on the host. When the agent exits, the VM tears down cleanly.
+
+The control plane is intentionally small. Firebreak exposes a single `firebreak` CLI that lets you launch VMs, inspect your resolved configuration, initialize project defaults, and manage orchestrated workers — nothing more.
+
+<Note>
+  The tagline for Skada Firebreak is **reliable isolation for high-trust automation**. The VM boundary is the mechanism that makes it safe to give an agent broad write access to your codebase without worrying about host-level side effects.
+</Note>
+
+## Key concepts
+
+### VM-first design
+
+Every agent runs inside a dedicated MicroVM, not a container or a sandbox process. The VM boundary enforces a hard isolation layer: network, filesystem, and process namespaces are all scoped to the guest. The agent cannot reach the host beyond the mounted workspace.
+
+### KVM isolation
+
+On Linux hosts, Firebreak uses KVM (Kernel-based Virtual Machine) for hardware-assisted virtualization. KVM lets MicroVMs run at near-native speed while maintaining full guest/host isolation. Firebreak checks that `/dev/kvm` is readable and writable before launching any VM workload.
+
+### MicroVM
+
+Firebreak uses `microvm.nix` to define and build minimal NixOS-based virtual machines. Each VM image is built from a declarative Nix flake — reproducible, auditable, and fast to boot. The VM contains only what the agent CLI needs, plus the Firebreak guest-side runtime.
+
+### Workspace mounting
+
+Your current working directory on the host is mounted into the guest VM at the same path. This means the agent reads and writes the same files you see on your host. There is no copy or sync step — changes are visible immediately in both directions through the mount.
+
+## Supported agents
+
+| Agent | VM name | Launch command |
+|---|---|---|
+| OpenAI Codex | `firebreak-codex` | `npx firebreak run codex` |
+| Anthropic Claude Code | `firebreak-claude-code` | `npx firebreak run claude-code` |
+
+## Supported platforms
+
+| Platform | Architecture | Status |
+|---|---|---|
+| Linux | x86\_64 (x64) | Supported |
+| Linux | aarch64 (arm64) | Supported |
+| macOS (Apple Silicon) | aarch64 (arm64) | Experimental |
+| macOS (Intel) | x86\_64 | Not supported |
+
+<Info>
+  On Linux, Firebreak uses QEMU with KVM. On Apple Silicon macOS, it uses vfkit. Intel Mac is not supported — use an Apple Silicon Mac or a supported Linux host.
+</Info>
+
+## Terminology
+
+**Agent VM** — A named MicroVM package that wraps a specific agent CLI. The two current agent VMs are `firebreak-codex` and `firebreak-claude-code`. Firebreak uses the name `firebreak run <vm>` to launch them.
+
+**Agent session** — A single running instance of an agent VM. Each `firebreak run` invocation starts one agent session. The session ends when the agent process exits and the VM shuts down.
+
+**Conversation thread** — The in-agent context managed by the agent CLI itself (e.g., a Codex task or a Claude Code conversation). One agent session holds one conversation thread by default.
+
+**Task** — In Firebreak's internal architecture, a bounded unit of agent work with a defined scope, a plan, and a validation phase. Tasks are used by `firebreak internal` plumbing and are distinct from interactive agent sessions.
+
+**Worker** — A host-brokered agent process managed by `firebreak worker`. Workers are created, tracked, and stopped through the worker surface. A worker runs an agent VM in the background and can be inspected, stopped, or removed independently.
+
+**Worker mode** — Controls whether a named command inside a packaged node-cli VM (such as `codex` or `claude`) routes through a sibling Firebreak worker VM (`vm` mode) or runs as a regular in-VM process (`local` mode).
+
+**`.firebreak.env`** — A project-local configuration file written by `firebreak init`. It stores `KEY=VALUE` project defaults. Real environment variables always take precedence over values in this file.

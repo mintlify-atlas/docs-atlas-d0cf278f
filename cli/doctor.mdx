@@ -1,0 +1,103 @@
+---
+title: "`firebreak doctor`"
+description: "Report resolved config, host platform, KVM state, agent config resolution, and launch readiness."
+---
+
+## Synopsis
+
+```bash
+firebreak doctor [--verbose] [--json]
+```
+
+## What it does
+
+`firebreak doctor` loads your project config and prints a summary of everything Firebreak has resolved — the project root, config file, host platform, local runtime, launch mode, agent config paths, and KVM availability. It also lists any suggested next steps if blockers are detected.
+
+Doctor works even when KVM is unavailable, making it useful for diagnosing configuration on machines that are not yet set up as VM hosts.
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--verbose` | Print additional details: the raw `cwd`, `project_root_source`, `git_common_dir`, and any ignored config keys. |
+| `--json` | Emit machine-readable JSON instead of the human-readable summary. Useful for scripting and CI diagnostics. |
+
+## What it reports
+
+| Field | Description |
+|---|---|
+| `project_root` | The resolved project root directory |
+| `project_config` | Config file source and resolved path |
+| `host_platform` | Host OS and architecture (e.g. `x86_64-linux`, `aarch64-darwin`) |
+| `local_runtime` | Selected local VM runtime (`qemu` on Linux, `vfkit` on Apple Silicon macOS) |
+| `launch_mode` | Resolved public launch mode (`run` or `shell`) |
+| `cwd_whitespace` | Whether the current working directory contains whitespace (a known launch blocker) |
+| `primary_checkout` | Whether the current directory is the repository's primary checkout |
+| `kvm` | KVM device availability: `ok`, `missing`, `not-readable`, `not-writable`, or `not-applicable` |
+| `codex_config` | Resolved Codex config mode and path |
+| `claude_config` | Resolved Claude Code config mode and path |
+
+<Note>
+`kvm` is reported as `not-applicable` on Apple Silicon macOS, where `vfkit` is used instead of QEMU/KVM.
+</Note>
+
+## Suggested next steps
+
+After printing the summary, `firebreak doctor` lists any suggested actions:
+
+- If `cwd_whitespace` is `yes` — move the workspace to a path without whitespace before launching a local VM.
+- If KVM is unavailable on Linux — fix `/dev/kvm` access to unblock validation suites that require KVM.
+- If `local_runtime` is `unsupported-intel-mac` — Intel Mac hosts are not supported; use Apple Silicon or a supported Linux host.
+- If `primary_checkout` is `no` — run task creation from the primary checkout if you need `firebreak internal task create`.
+- If `.firebreak.env` contains unrecognized keys — remove them or set them via shell environment variables instead.
+- If no blockers are found — `No obvious launch blockers detected.`
+
+## JSON output
+
+The `--json` flag outputs a structured object suitable for scripting:
+
+```json
+{
+  "project_root": "/home/user/myproject",
+  "project_root_source": "git",
+  "project_config_file": "/home/user/myproject/.firebreak.env",
+  "project_config_source": "project-default",
+  "host_platform": "x86_64-linux",
+  "local_runtime": "qemu",
+  "cwd": "/home/user/myproject",
+  "cwd_whitespace": false,
+  "launch_mode": "run",
+  "git_common_dir": ".git",
+  "primary_checkout": "yes",
+  "kvm": "ok",
+  "ignored_config_keys": [],
+  "agents": {
+    "codex": {
+      "mode": "workspace",
+      "path": "/home/user/myproject/.codex"
+    },
+    "claude-code": {
+      "mode": "workspace",
+      "path": "/home/user/myproject/.claude"
+    }
+  }
+}
+```
+
+With `--verbose --json`, the output gains a `details` object containing `cwd`, `project_root_source`, `git_common_dir`, and `ignored_keys`.
+
+## Examples
+
+```bash
+# Human-readable summary
+firebreak doctor
+
+# Machine-readable JSON
+firebreak doctor --json
+
+# Verbose human-readable output
+firebreak doctor --verbose
+
+# Verbose JSON
+firebreak doctor --verbose --json
+```

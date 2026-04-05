@@ -1,0 +1,119 @@
+---
+title: "`firebreak worker rm`"
+description: "Remove worker records from state. Fails for running workers unless --force is specified. Also covers firebreak worker prune."
+---
+
+## Synopsis
+
+```
+firebreak worker rm [--all] [--force] [--json] [WORKER_ID...]
+firebreak worker prune [--force] [--json]
+```
+
+## Description
+
+`firebreak worker rm` removes worker state records from disk. By default it refuses to remove a worker that is still running (`active`, `running`, or `stopping` status). Pass `--force` to stop and kill the worker before removing it.
+
+You must provide either one or more `WORKER_ID` arguments or `--all`. These options are mutually exclusive.
+
+`firebreak worker prune` is a convenience command that removes all stopped and exited workers at once. With `--force`, it also stops and removes any active workers.
+
+## Arguments
+
+<ParamField path="WORKER_ID..." type="string">
+  One or more worker IDs to remove. Cannot be combined with `--all`.
+</ParamField>
+
+## Flags
+
+### `firebreak worker rm`
+
+<ParamField path="--all">
+  Remove all worker records. Cannot be combined with explicit `WORKER_ID` arguments.
+</ParamField>
+
+<ParamField path="--force">
+  Stop and kill running workers before removing them. Without this flag, the command exits with an error if any specified worker is still active.
+
+  When `--force` is used against a running worker:
+  1. SIGTERM is sent to the worker and its child process.
+  2. The command waits up to 30 seconds for the process to exit.
+  3. If the process does not exit in time, SIGKILL is sent.
+  4. After the process exits, the worker record is removed.
+</ParamField>
+
+<ParamField path="--json">
+  Output the removed worker metadata as JSON. For a single worker ID (without `--all`), outputs the single metadata object. For multiple workers or `--all`, outputs a JSON array.
+</ParamField>
+
+### `firebreak worker prune`
+
+<ParamField path="--force">
+  Include active workers (`active`, `running`, `stopping`) in the prune operation. Without this flag, only `stopped` and `exited` workers are removed.
+</ParamField>
+
+<ParamField path="--json">
+  Output the removed worker metadata as a JSON array. Returns `[]` if no workers were removed.
+</ParamField>
+
+## Examples
+
+### `firebreak worker rm`
+
+Remove a stopped worker:
+
+```bash
+firebreak worker rm codex-1a2b3c4d5e6f
+```
+
+Force-stop and remove a running worker:
+
+```bash
+firebreak worker rm --force codex-1a2b3c4d5e6f
+```
+
+Remove all workers (only works if none are still running):
+
+```bash
+firebreak worker rm --all
+```
+
+Force-remove all workers including running ones:
+
+```bash
+firebreak worker rm --all --force
+```
+
+Remove a worker and capture its final metadata:
+
+```bash
+firebreak worker rm --json codex-1a2b3c4d5e6f
+```
+
+### `firebreak worker prune`
+
+Remove all stopped and exited workers:
+
+```bash
+firebreak worker prune
+```
+
+Remove all workers including active ones:
+
+```bash
+firebreak worker prune --force
+```
+
+Prune and capture removed worker metadata:
+
+```bash
+firebreak worker prune --json
+```
+
+<Warning>
+  Removing a worker deletes its entire state directory, including the stdout, stderr, and trace log files. Retrieve any logs you need with `firebreak worker logs` before running `rm`.
+</Warning>
+
+<Tip>
+  Run `firebreak worker prune` at the end of an agent session to clean up all finished workers in one step. Use `--force` in CI pipelines to ensure a clean state regardless of worker status.
+</Tip>
